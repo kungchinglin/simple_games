@@ -19,6 +19,8 @@ label = -1
 
 WHITE = pygame.Color(255, 255, 255)
 RED = pygame.Color(255, 0, 0) 
+BLUE = pygame.Color(0, 0, 255) 
+BLACK = pygame.Color(0, 0, 0) 
 
 up_1 = height // 3
 up_2 = height * 2 // 3
@@ -33,6 +35,12 @@ radius = 50
 Board = [[0]*3 for _ in range(3)]
 Running = 1
 total_steps = 0
+
+
+# 3.2 - Load game over screen.
+gameover = pygame.image.load("resources/images/gameover.png")
+youwin = pygame.image.load("resources/images/youwin.png")
+
 
 # 4 - Define utility functions.
 
@@ -72,16 +80,30 @@ def check_winner(Board):
 
 
 
+
 while Running:
 
-    # 5 - clear the screen before drawing it again
-    screen.fill(0)
+    # 5 - Pre-draw the board with lines.
 
+    screen.fill(WHITE)
 
     pygame.draw.line(screen, RED, [left_1, 0], [left_1, height])
     pygame.draw.line(screen, RED, [left_2, 0], [left_2, height])
     pygame.draw.line(screen, RED, [0, up_1], [width, up_1])
     pygame.draw.line(screen, RED, [0, up_2], [width, up_2])
+
+    pygame.font.init()
+    font = pygame.font.Font(None, 30)
+    if label == 1:
+        text = font.render("Circle goes.", True, BLACK)
+    else:
+        text = font.render("Cross goes.", True, BLACK)
+
+    textRect = text.get_rect()
+    textRect.centerx = screen.get_rect().centerx
+    textRect.centery = 20
+
+    screen.blit(text, textRect)
 
 
     # 8 - loop through the events
@@ -119,12 +141,12 @@ while Running:
             center_y = (Pos_y+ 0.5) * height//3
 
             if Board[Pos_x][Pos_y] == 1:
-                pygame.draw.circle(screen, RED, (center_x , center_y) , radius, 10) 
+                pygame.draw.circle(screen, RED, (center_x , center_y) , radius, 20) 
 
             if Board[Pos_x][Pos_y] == -1:
                 half_length = 40
-                pygame.draw.line(screen, RED, [center_x - half_length , center_y - half_length], [center_x + half_length , center_y + half_length], width = 10)
-                pygame.draw.line(screen, RED, [center_x + half_length , center_y - half_length], [center_x - half_length , center_y + half_length], width = 10)
+                pygame.draw.line(screen, BLUE, [center_x - half_length , center_y - half_length], [center_x + half_length , center_y + half_length], width = 20)
+                pygame.draw.line(screen, BLUE, [center_x + half_length , center_y - half_length], [center_x - half_length , center_y + half_length], width = 20)
 
 
 
@@ -148,19 +170,22 @@ while Running:
         Running = 0
 
 pygame.font.init()
-font = pygame.font.Font(None, 50)
+font = pygame.font.Font(None, 100)
 if exitcode == 1:
-    text = font.render("Circle wins.", True, (255,255,255))
+    text = font.render("CIRCLE wins.", True, BLACK)
+    screen.blit(youwin, (0,0))
 elif exitcode == -1:
-    text = font.render("Cross wins.", True, (255,255,255))
+    text = font.render("CROSS wins.", True, BLACK)
+    screen.blit(youwin, (0,0))
 else:
-    text = font.render("It's a draw.", True, (255,255,255))
+    text = font.render("It's a draw.", True, BLACK)
+    screen.blit(gameover, (0,0))
 
 
 textRect = text.get_rect()
 textRect.centerx = screen.get_rect().centerx
 textRect.centery = screen.get_rect().centery+24
-        #screen.blit(gameover, (0,0))
+
 screen.blit(text, textRect)
 
 while True:
