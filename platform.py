@@ -12,7 +12,7 @@ print(dir(pygame))
 class Player():
 
     _gravity = 0.1
-    jump_speed_factor = 8
+    jump_speed_factor = 7
     move_speed = 0.3
 
 
@@ -103,15 +103,52 @@ class Player():
         pygame.draw.rect(screen, YELLOW, light_rect)
         
     
+# Create monsters.
+        
+class Monster(Player):
+
+    def __init__(self, pos, player_size = [30,50], key = "right"):
+        super(Monster, self).__init__(pos, player_size)
+        if key == "right":
+            self.keys = [False, False, False, True]
+        else:
+            self.keys = [False, True, False, False]
+
+    def progressing(self):
+        
+        if not self.collide[2]:
+            self.vert = max(self.vert - 0.01*self.gravity, -self.jump_speed_factor * self.gravity)
+        else:
+            self.vert = 0
+
+        self.pos[1] -= self.vert
 
         
-        
+        if self.keys[1]:
+            if not self.collide[1]:
+                self.pos[0] -= self.move_speed
+            else:
+                self.keys[1], self.keys[3] = False, True
+                self.pos[0] += self.move_speed
+        elif self.keys[3]:
+            if not self.collide[3]:
+                self.pos[0] += self.move_speed
+            else:
+                self.keys[3], self.keys[1] = False, True
+                self.pos[0] -= self.move_speed
+    
+    def __del__(self):
+        #Want to maybe add a sound of explosion.
+        pass
+
+
     
     
 
 
 
 player_size = [30,50]
+monster_size = [30,30]
 pygame.init()
 width, height = 640, 480
 screen = pygame.display.set_mode((width, height))
@@ -124,6 +161,8 @@ YELLOW = (255,255,0)
 keys = [False, False, False, False]
 
 player = Player([width//2, height//2], player_size)
+
+monsters = [Monster([3*width//4, height//2], monster_size)]
 
 block_size = 20
 
@@ -156,11 +195,16 @@ pygame.mixer.init()
 wall = pygame.image.load("resources/images/wall.jpg")
 wall = pygame.transform.scale(wall, (block_size, block_size))
 
-mario = pygame.image.load("resources/images/mario_stand.png")
+mario = pygame.image.load("resources/images/mario_stand.png").convert_alpha()
 mario = pygame.transform.scale(mario, (player_size[0], player_size[1]))
 
 mario_jump = pygame.image.load("resources/images/Mario_jump.jpg")
 mario_jump = pygame.transform.scale(mario_jump, (player_size[0], player_size[1]))
+
+
+goomba = pygame.image.load("resources/images/goomba.png")
+goomba = pygame.transform.scale(goomba, (monster_size[0], monster_size[1]))
+
 
 player_rabbit = pygame.image.load("resources/images/dude.png")
 
@@ -200,11 +244,14 @@ while True:
     #pygame.draw.rect(screen, BLUE, player_rect)
     #pygame.draw.rect(screen, GREEN, small_rect)
 
+    # 5.1 - Blit players, wall, and monster
     if player.vert == 0:
         screen.blit(mario, (player.pos[0], player.pos[1]))
     else:
         screen.blit(mario_jump, (player.pos[0], player.pos[1]))
 
+    player.check_collide(blocks, block_size)
+    player.progressing()
 
 
     for block in blocks:
@@ -215,8 +262,13 @@ while True:
         #pygame.draw.rect(screen, GREEN, small_rect)
 
 
-    player.check_collide(blocks, block_size)
-    player.progressing()
+    for monster in monsters:
+        screen.blit(goomba, tuple(monster.pos))
+
+        monster.check_collide(blocks, block_size)
+        monster.progressing()
+
+
 
 
     pygame.display.flip()
