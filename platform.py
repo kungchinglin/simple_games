@@ -11,10 +11,10 @@ print(dir(pygame))
 # 2 - Initialize the game
 class Player():
 
-    _gravity = 0.3
-    jump_speed_factor = 5
+    _gravity = 0.1
+    jump_speed_factor = 8
     move_speed = 0.3
-    player_size = [50,50]
+
 
     @property
     def gravity(self):
@@ -25,11 +25,12 @@ class Player():
         type(self)._gravity = new_grav
 
 
-    def __init__(self, pos):
+    def __init__(self, pos, player_size = [30,50]):
         self.pos = pos
         self.vert = 0
         self.collide = [False, False, False, False]
         self.keys = [False, False, False, False]
+        self.player_size = player_size
 
     def progressing(self):
 
@@ -62,34 +63,44 @@ class Player():
 
         colli_box = [0]*4
 
+
         for block in blocks:
             #Check if the block is above/below/left/right.
 
             #Case 1: the block is below:
+            tolerance = 5
 
-            if block[1] > self.pos[1]   and  block[1] < self.pos[1] + self.player_size[1] + block_size/2:
-                if block[0] > self.pos[0] - block_size and block[0] < self.pos[0] + block_size:
+            if block[1] > self.pos[1] -tolerance  and  block[1] < self.pos[1] + self.player_size[1] + tolerance:
+                if  self.pos[0] + self.player_size[0] -tolerance > block[0] and self.pos[0] +5 < block[0] + block_size:
                     colli_box[2] += 1
             
             #Case 2: the block is above:
-            elif block[1] < self.pos[1] and block[1] >self.pos[1]-self.player_size[1] - block_size/2:
-                if block[0] > self.pos[0] - block_size/2 and block[0] < self.pos[0] + block_size/2:
+            if block[1] > self.pos[1] - tolerance and block[1] < self.pos[1] + block_size + tolerance:
+                if self.pos[0] + self.player_size[0] -tolerance > block[0] and self.pos[0] +5 < block[0] + block_size:              
                     colli_box[0] += 1
             
             #The sub-condition is never met. Why?
 
             #Case 3: the block is on the right:
-            elif block[0] > self.pos[0]   and  block[0] < self.pos[0] + self.player_size[0] + block_size/2:
-                if block[1] > self.pos[1] - block_size/2 and block[1] < self.pos[1] + block_size/2:
+            if block[0] > self.pos[0]   and  block[0] < self.pos[0] + self.player_size[0]:       
+                if block[1] > self.pos[1] - block_size and block[1] < self.pos[1] + self.player_size[1]:
                     colli_box[3] += 1
             
             #Case 2: the block is on the left:
-            elif block[0] < self.pos[0] and block[0] >self.pos[0]-self.player_size[0]:# - block_size/2:
-                if block[1] > self.pos[1] - block_size/2 and block[1] < self.pos[1] + block_size/2:
+            if block[0] < self.pos[0] and block[0] > self.pos[0] -block_size:
+                #light_rect = (block[0], block[1], 0.2*block_size, 0.2*block_size)
+                #pygame.draw.rect(screen, YELLOW, light_rect)
+                if block[1] > self.pos[1] - block_size and block[1] < self.pos[1] + self.player_size[1]:
                     colli_box[1] += 1
         
         self.collide = [colli_box[i] > 0 for i in range(4)]
-        print(self.collide)
+
+
+    #This function is for debugging purposes.
+
+    def lights_up(self, block, block_size):
+        light_rect = (block[0], block[1], 0.2*block_size, 0.2*block_size)
+        pygame.draw.rect(screen, YELLOW, light_rect)
         
     
 
@@ -100,23 +111,33 @@ class Player():
 
 
 
-
+player_size = [30,50]
 pygame.init()
 width, height = 640, 480
-screen=pygame.display.set_mode((width, height))
+screen = pygame.display.set_mode((width, height))
 
 BLUE = (0,0,255)
 RED = (255,0,0)
+GREEN = (0,255,0)
+YELLOW = (255,255,0)
 
 keys = [False, False, False, False]
 
-player = Player([320,240])
+player = Player([width//2, height//2], player_size)
 
 block_size = 20
 
-blocks = [[x_pos * block_size,height-block_size] for x_pos in range(width//block_size)]
+
+#Side wall and lower wall
+
+blocks = [[x_pos * block_size, height-block_size] for x_pos in range(width//block_size)]
 blocks.extend([[0, y_pos *block_size]  for y_pos in range(height//block_size)])
 blocks.extend([[width-block_size, y_pos *block_size]  for y_pos in range(height//block_size)])
+
+
+#Some walls in the middle
+
+blocks.extend([[x_pos * block_size, height-5*block_size] for x_pos in range(10,width//block_size - 10)])
 
 acc=[0,0]
 arrows=[]
@@ -131,6 +152,16 @@ pygame.mixer.init()
 
 
 # 3 - Load images
+
+wall = pygame.image.load("resources/images/wall.jpg")
+wall = pygame.transform.scale(wall, (block_size, block_size))
+
+mario = pygame.image.load("resources/images/mario_stand.png")
+mario = pygame.transform.scale(mario, (player_size[0], player_size[1]))
+
+mario_jump = pygame.image.load("resources/images/Mario_jump.jpg")
+mario_jump = pygame.transform.scale(mario_jump, (player_size[0], player_size[1]))
+
 player_rabbit = pygame.image.load("resources/images/dude.png")
 
 
@@ -164,13 +195,24 @@ while True:
     # 5 - clear the screen before drawing it again
     screen.fill(0)
 
-    player_rect = (player.pos[0], player.pos[1], player.player_size[0], player.player_size[1])
-    pygame.draw.rect(screen, BLUE, player_rect)    
+    #player_rect = (player.pos[0], player.pos[1], player.player_size[0], player.player_size[1])
+    #small_rect = (player.pos[0], player.pos[1], 0.1*player.player_size[0], 0.1*player.player_size[1])
+    #pygame.draw.rect(screen, BLUE, player_rect)
+    #pygame.draw.rect(screen, GREEN, small_rect)
+
+    if player.vert == 0:
+        screen.blit(mario, (player.pos[0], player.pos[1]))
+    else:
+        screen.blit(mario_jump, (player.pos[0], player.pos[1]))
+
 
 
     for block in blocks:
-        rect = (block[0], block[1], block_size, block_size)
-        pygame.draw.rect(screen, RED, rect)        
+        screen.blit(wall, (block[0], block[1]))
+        #rect = (block[0], block[1], block_size, block_size)
+        #small_rect = (block[0], block[1], 0.1*block_size, 0.1*block_size)
+        #pygame.draw.rect(screen, RED, rect)
+        #pygame.draw.rect(screen, GREEN, small_rect)
 
 
     player.check_collide(blocks, block_size)
