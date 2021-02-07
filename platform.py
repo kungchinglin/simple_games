@@ -9,7 +9,61 @@ import random
 print(dir(pygame))
 
 # 2 - Initialize the game
-class Player():
+class GameObject():
+
+    def __init__(self, pos, size):
+        self.pos = pos
+        self.size = size
+        self.collide = [False]*4
+    
+    def check_collide(self, blocks):
+
+        colli_box = [0]*4
+
+
+        for block in blocks:
+            #Check if the block is above/below/left/right.
+
+            #Case 1: the block is below:
+            tolerance = 5
+
+            if block.pos[1] > self.pos[1] + self.size[1] -tolerance  and  block.pos[1] < self.pos[1] + self.size[1] + tolerance:
+                if  self.pos[0] + self.size[0] -tolerance > block.pos[0] and self.pos[0] + tolerance < block.pos[0] + block.size[0]:
+                    colli_box[2] += 1
+            
+            #Case 2: the block is above:
+            if block.pos[1] + block.size[1] > self.pos[1] - tolerance and block.pos[1] + block.size[1] < self.pos[1]  + tolerance:
+                if self.pos[0] + self.size[0] -tolerance > block.pos[0] and self.pos[0] +5 < block.pos[0] + block.size[0]:              
+                    colli_box[0] += 1
+            
+            #The sub-condition is never met. Why?
+
+            #Case 3: the block is on the right:
+            if block.pos[0] > self.pos[0]   and  block.pos[0] < self.pos[0] + self.size[0]:       
+                if block.pos[1] > self.pos[1] - block.size[1] and block.pos[1] < self.pos[1] + self.size[1]:
+                    colli_box[3] += 1
+            
+            #Case 2: the block is on the left:
+            if block.pos[0] < self.pos[0] and block.pos[0] > self.pos[0] -block.size[0]:
+                #light_rect = (block[0], block[1], 0.2*block_size, 0.2*block_size)
+                #pygame.draw.rect(screen, YELLOW, light_rect)
+                if block.pos[1] > self.pos[1] - block.size[1] and block.pos[1] < self.pos[1] + self.size[1]:
+                    colli_box[1] += 1
+        
+        self.collide = [colli_box[i] > 0 for i in range(4)]
+
+
+    def got_hit_any(self, objs):
+        tolerance = 5
+        for obj in objs:
+            if obj.pos[0] + obj.size[0] > self.pos[0] - tolerance and obj.pos[0] < self.pos[0] + self.size[0] + tolerance:
+                if obj.pos[1] + obj.size[1] > self.pos[1] - tolerance and obj.pos[1] < self.pos[1] + self.size[1] + tolerance:
+                    return True
+        
+        return False
+
+
+class Player(GameObject):
 
     _gravity = 0.1
     jump_speed_factor = 7
@@ -26,11 +80,9 @@ class Player():
 
 
     def __init__(self, pos, size = [30,50]):
-        self.pos = pos
+        super(Player, self).__init__(pos, size)
         self.vert = 0
-        self.collide = [False, False, False, False]
         self.keys = [False, False, False, False]
-        self.size = size
         self.face_right = True
 
     def progressing(self):
@@ -59,52 +111,6 @@ class Player():
         if self.keys[3] and not self.collide[3]:
             self.pos[0] += self.move_speed
 
-    
-    def check_collide(self, blocks, block_size):
-
-        colli_box = [0]*4
-
-
-        for block in blocks:
-            #Check if the block is above/below/left/right.
-
-            #Case 1: the block is below:
-            tolerance = 5
-
-            if block[1] > self.pos[1] + self.size[1] -tolerance  and  block[1] < self.pos[1] + self.size[1] + tolerance:
-                if  self.pos[0] + self.size[0] -tolerance > block[0] and self.pos[0] +5 < block[0] + block_size:
-                    colli_box[2] += 1
-            
-            #Case 2: the block is above:
-            if block[1] + block_size > self.pos[1] - tolerance and block[1] + block_size < self.pos[1]  + tolerance:
-                if self.pos[0] + self.size[0] -tolerance > block[0] and self.pos[0] +5 < block[0] + block_size:              
-                    colli_box[0] += 1
-            
-            #The sub-condition is never met. Why?
-
-            #Case 3: the block is on the right:
-            if block[0] > self.pos[0]   and  block[0] < self.pos[0] + self.size[0]:       
-                if block[1] > self.pos[1] - block_size and block[1] < self.pos[1] + self.size[1]:
-                    colli_box[3] += 1
-            
-            #Case 2: the block is on the left:
-            if block[0] < self.pos[0] and block[0] > self.pos[0] -block_size:
-                #light_rect = (block[0], block[1], 0.2*block_size, 0.2*block_size)
-                #pygame.draw.rect(screen, YELLOW, light_rect)
-                if block[1] > self.pos[1] - block_size and block[1] < self.pos[1] + self.size[1]:
-                    colli_box[1] += 1
-        
-        self.collide = [colli_box[i] > 0 for i in range(4)]
-    
-    def got_hit_any(self, objs):
-        tolerance = 5
-        for obj in objs:
-            if obj.pos[0] + obj.size[0] > self.pos[0] - tolerance and obj.pos[0] < self.pos[0] + self.size[0] + tolerance:
-                if obj.pos[1] + obj.size[1] > self.pos[1] - tolerance and obj.pos[1] < self.pos[1] + self.size[1] + tolerance:
-                    return True
-        
-        return False
-
 
     #This function is for debugging purposes.
 
@@ -116,6 +122,8 @@ class Player():
 # Create monsters.
         
 class Monster(Player):
+    
+    jump_speed_factor = 4
 
     def __init__(self, pos, size = [30,30], key = "right"):
         super(Monster, self).__init__(pos, size)
@@ -152,19 +160,20 @@ class Monster(Player):
         pass
 
 # Create projectiles.
-class Projectiles():
+class Projectiles(GameObject):
 
     move_speed = 0.5
     angle_fac = 0.5
 
     def __init__(self, pos, size=[10, 10], face_right=True):
-        self.size = size
-        self.pos = pos
-        self.collide = [False]*4
+        super(Projectiles, self).__init__(pos, size)
         self.vel = [self.move_speed, self.angle_fac*self.move_speed] if face_right else [-self.move_speed, self.angle_fac*self.move_speed]
         self.col_count = 0
     
     def progressing(self):
+        if self.collide != [False]*4:
+            self.col_count += 1
+
 
         if self.collide[0]:
             self.vel[1] *= -1 #= -abs(self.vel[1])
@@ -181,41 +190,6 @@ class Projectiles():
         self.pos[0] += self.vel[0]
 
     
-    def check_collide(self, blocks, block_size):
-
-        colli_box = [0]*4
-
-
-        for block in blocks:
-            #Check if the block is above/below/left/right.
-
-            #Case 1: the block is below:
-            tolerance = 1
-
-            if block[1] > self.pos[1] + self.size[1] -tolerance  and  block[1] < self.pos[1] + self.size[1] + tolerance:
-                if  self.pos[0] + self.size[0] -tolerance > block[0] and self.pos[0] +tolerance < block[0] + block_size:
-                    colli_box[2] += 1
-            
-            #Case 2: the block is above:
-            if block[1] + block_size > self.pos[1] - tolerance and block[1] + block_size < self.pos[1]  + tolerance:
-                if self.pos[0] + self.size[0] -tolerance > block[0] and self.pos[0] +tolerance < block[0] + block_size:
-                    colli_box[0] += 1
-
-
-            #Case 3: the block is on the right:
-            if block[0] > self.pos[0]   and  block[0] < self.pos[0] + self.size[0]:
-                if block[1] > self.pos[1] - block_size and block[1] < self.pos[1] + self.size[1]:
-                    colli_box[3] += 1
-            
-            #Case 2: the block is on the left:
-            if block[0] < self.pos[0] and block[0] > self.pos[0] -block_size:
-                if block[1] > self.pos[1] - block_size and block[1] < self.pos[1] + self.size[1]:
-                    colli_box[1] += 1
-        
-        self.collide = [colli_box[i] > 0 for i in range(4)]
-        if self.collide != [False]*4:
-            self.col_count += 1
-    
     def lights_up(self, block, block_size):
         light_rect = (block[0], block[1], 0.2*block_size, 0.2*block_size)
         pygame.draw.rect(screen, YELLOW, light_rect)
@@ -225,18 +199,23 @@ class Projectiles():
 def initialization(width, height, size, monster_size, monster_num = 1):
     player = Player([width//2, height//2], size)
     monsters = []
+    dead_monsters = []
 
     for _ in range(monster_num):
         monsters.append(Monster([3*width//4, height//2], monster_size))
     
-    return player, monsters
+    return player, monsters, dead_monsters
     
 
 # 2.1 - Some parameters
 
 player_size = [30,50]
 monster_size = [30,30]
+block_size = [20,20]
 fireball_size = [10,10]
+monster_num = 1
+
+
 pygame.init()
 width, height = 640, 480
 screen = pygame.display.set_mode((width, height))
@@ -251,19 +230,18 @@ keys = [False, False, False, False]
 
 
 
-block_size = 20
 
 
 #Side wall and lower wall
 
-blocks = [[x_pos * block_size, height-block_size] for x_pos in range(width//block_size)]
-blocks.extend([[0, y_pos *block_size]  for y_pos in range(height//block_size)])
-blocks.extend([[width-block_size, y_pos *block_size]  for y_pos in range(height//block_size)])
+blocks = [GameObject([x_pos * block_size[0], height-block_size[1]], block_size) for x_pos in range(width//block_size[0])]
+blocks.extend([GameObject([0, y_pos *block_size[1]], block_size)  for y_pos in range(height//block_size[1])])
+blocks.extend([GameObject([width-block_size[0], y_pos *block_size[1]], block_size)  for y_pos in range(height//block_size[1])])
 
 
 #Some walls in the middle
 
-blocks.extend([[x_pos * block_size, height-5*block_size] for x_pos in range(10,width//block_size - 10)])
+blocks.extend([GameObject([x_pos * block_size[0], height-5*block_size[1]], block_size) for x_pos in range(10,width//block_size[0] - 10)])
 
 acc=[0,0]
 arrows=[]
@@ -280,7 +258,7 @@ pygame.mixer.init()
 # 3 - Load images
 
 wall = pygame.image.load("resources/images/wall.jpg")
-wall = pygame.transform.scale(wall, (block_size, block_size))
+wall = pygame.transform.scale(wall, block_size)
 
 mario = pygame.image.load("resources/images/mario_stand.png").convert_alpha()
 mario = pygame.transform.scale(mario, player_size)
@@ -324,7 +302,7 @@ pygame.mixer.music.set_volume(0.25)
 
 # 4 Big loop so that after the gameover one can restart.
 while True:
-    player, monsters = initialization(width, height, player_size, monster_size)
+    player, monsters, dead_monsters = initialization(width, height, player_size, monster_size)
     fireballs = []
     exit_flag = False
 
@@ -339,7 +317,7 @@ while True:
 
         # 5.1 - Blit players, wall, and monster
 
-        player.check_collide(blocks, block_size)
+        player.check_collide(blocks)
         player.progressing()
 
         if player.vert != 0 and player.face_right:
@@ -353,23 +331,42 @@ while True:
 
 
         for block in blocks:
-            screen.blit(wall, block)
+            screen.blit(wall, block.pos)
             #rect = (block[0], block[1], block_size, block_size)
             #small_rect = (block[0], block[1], 0.1*block_size, 0.1*block_size)
             #pygame.draw.rect(screen, RED, rect)
             #pygame.draw.rect(screen, GREEN, small_rect)
 
+        # 5.1.2 - Check if monsters disappeared.
+        while len(monsters) < monster_num:
+            monsters.append(Monster([3*width//4, height//2], monster_size))
+
 
         for monster in monsters:
 
-            monster.check_collide(blocks, block_size)
+            monster.check_collide(blocks)
             monster.progressing()
 
             screen.blit(goomba, monster.pos)
-        
+
+        remaining_ind = []
+
+        for i,dead_monster in enumerate(dead_monsters):
+            dead_monster.progressing()
+
+            if dead_monster.pos[1] > 2 * height:
+                del dead_monster
+            else:
+                remaining_ind.append(i)
+                screen.blit(goomba, dead_monster.pos)
+
+
+        dead_monsters = [dead_monsters[i] for i in remaining_ind]
+
+
         for fireball in fireballs:
 
-            fireball.check_collide(blocks, block_size)
+            fireball.check_collide(blocks)
             fireball.progressing()
 
             rect = (fireball.pos[0], fireball.pos[1], fireball.size[0], fireball.size[1])
@@ -431,8 +428,23 @@ while True:
             break
 
         # 5.2.2 - If the monster touches the fireball, then the monster dies and the fireball disappears.
+        alive_ind = []
+        dead_ind = []
 
+        for i, monster in enumerate(monsters):
+            if monster.got_hit_any(fireballs):
+                # Jump a bit then die.
+                monster.vert = monster.jump_speed_factor * monster.gravity
+                monster.collide = [False]*4
+                monster.keys = [False]*4
+                dead_ind.append(i)
+            else:
+                alive_ind.append(i)
+        
+        newly_dead = [monsters[i] for i in dead_ind]
+        dead_monsters += newly_dead
 
+        monsters = [monsters[j] for j in alive_ind]
 
 
         # 5.2.3 - If the collision is more than 3, then the fireballs disappears.
@@ -444,11 +456,11 @@ while True:
         #Let the player jump and fall through walls.
 
         player.progressing()
-        screen.blit(mario_jump, (player.pos[0], player.pos[1]))
+        screen.blit(mario_jump, player.pos)
 
         #The wall and monsters are static.
         for block in blocks:
-            screen.blit(wall, (block[0], block[1]))
+            screen.blit(wall, block.pos)
         
         for monster in monsters:
             screen.blit(goomba, tuple(monster.pos))        
