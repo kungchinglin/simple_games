@@ -2,14 +2,27 @@
 import pygame
 from pygame.locals import *
 
+import time
 import math
 
 import random
 
-print(dir(pygame))
+
 
 # 2 - Initialize the game
 class GameObject():
+    _gravity = 0.8
+
+
+
+    @property
+    def gravity(self):
+        return type(self)._gravity
+
+    @gravity.setter
+    def gravity(self, new_grav):
+        type(self)._gravity = new_grav
+
 
     def __init__(self, pos, size):
         self.pos = pos
@@ -25,7 +38,7 @@ class GameObject():
             #Check if the block is above/below/left/right.
 
             #Case 1: the block is below:
-            tolerance = 5
+            tolerance = 1
 
             if block.pos[1] > self.pos[1] + self.size[1] -tolerance  and  block.pos[1] < self.pos[1] + self.size[1] + tolerance:
                 if  self.pos[0] + self.size[0] -tolerance > block.pos[0] and self.pos[0] + tolerance < block.pos[0] + block.size[0]:
@@ -54,7 +67,7 @@ class GameObject():
 
 
     def got_hit_any(self, objs):
-        tolerance = 5
+        tolerance = 1
         for obj in objs:
             if obj.pos[0] + obj.size[0] > self.pos[0] - tolerance and obj.pos[0] < self.pos[0] + self.size[0] + tolerance:
                 if obj.pos[1] + obj.size[1] > self.pos[1] - tolerance and obj.pos[1] < self.pos[1] + self.size[1] + tolerance:
@@ -65,18 +78,8 @@ class GameObject():
 
 class Player(GameObject):
 
-    _gravity = 0.1
-    jump_speed_factor = 7
-    move_speed = 0.3
-
-
-    @property
-    def gravity(self):
-        return type(self)._gravity
-
-    @gravity.setter
-    def gravity(self, new_grav):
-        type(self)._gravity = new_grav
+    jump_speed_factor = 2
+    move_speed = 0.5
 
 
     def __init__(self, pos, size = [30,50]):
@@ -92,10 +95,16 @@ class Player(GameObject):
         #Case 1: The player is on the ground and is starting to jump.
 
         #Case 2: When the player is away from the ground.
+
+        
         if self.collide[0]:
             self.vert *= -1
         elif not self.collide[2]:
-            self.vert = max(self.vert - 0.01*self.gravity, -self.jump_speed_factor * self.gravity)
+            #Hold up to fly higher
+            if self.keys[0]:
+                self.vert = max(self.vert - 0.01*self.gravity, -self.jump_speed_factor * self.gravity)
+            else:
+                self.vert = max(self.vert - 0.02*self.gravity, -self.jump_speed_factor * self.gravity)
         else:
             if self.keys[0]:
                 self.vert = self.jump_speed_factor * self.gravity
@@ -105,7 +114,7 @@ class Player(GameObject):
         #Now, start to move. Note that the coordinate is reverted.
 
         self.pos[1] -= self.vert
-        
+
         if self.keys[1] and not self.collide[1]:
             self.pos[0] -= self.move_speed
         if self.keys[3] and not self.collide[3]:
@@ -123,7 +132,8 @@ class Player(GameObject):
         
 class Monster(Player):
     
-    jump_speed_factor = 4
+    jump_speed_factor = 1.5
+
 
     def __init__(self, pos, size = [30,30], key = "right"):
         super(Monster, self).__init__(pos, size)
@@ -159,14 +169,60 @@ class Monster(Player):
         #Want to maybe add a sound of explosion.
         pass
 
-# Create projectiles.
-class Projectiles(GameObject):
+class Boss(Monster):
+    
+    hammer_chance = 0.01
+    move_speed = 0.3
 
-    move_speed = 0.5
+    health = 5
+
+    def __init__(self, pos, size = [70,70], key = "left"):
+        super(Boss, self).__init__(pos, size)
+
+        self.hammer_throw = False
+
+        if key == "right":
+            self.keys = [False, False, False, True]
+        else:
+            self.keys = [False, True, False, False]    
+
+    def progressing(self, hammers):
+        #The boss has a chance of throwing hammers.
+        #The boss avoids falling by checking ahead.        
+        if not self.collide[2]:
+            self.vert = max(self.vert - 0.01*self.gravity, -self.jump_speed_factor * self.gravity)
+        else:
+            self.vert = 0
+
+        self.pos[1] -= self.vert
+
+        hammer_throw = random.random() < self.hammer_chance
+
+        if hammer_throw:
+            hammers.append(Hammer([self.pos[0], self.pos[1] + 0.5*self.size[1]], size = [20,20], face_right = False))
+        
+        if self.keys[1]:
+            if not self.collide[1]:
+                self.pos[0] -= self.move_speed
+            else:
+                self.keys[1], self.keys[3] = False, True
+                self.pos[0] += self.move_speed
+        elif self.keys[3]:
+            if not self.collide[3]:
+                self.pos[0] += self.move_speed
+            else:
+                self.keys[3], self.keys[1] = False, True
+                self.pos[0] -= self.move_speed
+
+
+# Create projectiles.
+class Fireball(GameObject):
+
+    move_speed = 0.9
     angle_fac = 0.5
 
     def __init__(self, pos, size=[10, 10], face_right=True):
-        super(Projectiles, self).__init__(pos, size)
+        super(Fireball, self).__init__(pos, size)
         self.vel = [self.move_speed, self.angle_fac*self.move_speed] if face_right else [-self.move_speed, self.angle_fac*self.move_speed]
         self.col_count = 0
     
@@ -194,10 +250,36 @@ class Projectiles(GameObject):
         light_rect = (block[0], block[1], 0.2*block_size, 0.2*block_size)
         pygame.draw.rect(screen, YELLOW, light_rect)
 
+class Hammer(GameObject):
+
+    move_speed = 0.5
+    angle_fac = 0.5
+
+    def __init__(self, pos, size=[20, 20], face_right=True):
+        super(Hammer, self).__init__(pos, size)
+        self.vel = [self.move_speed, -self.angle_fac*self.move_speed] if face_right else [-self.move_speed, -self.angle_fac*self.move_speed]
+        self.col_count = 0
+    
+    def progressing(self):
+        if self.collide != [False]*4:
+            self.col_count += 1
+
+        else:
+            self.vel[1] = min(self.vel[1]+0.01 * self.gravity, 2* self.gravity)
+
+
+        self.pos[1] += self.vel[1]
+        self.pos[0] += self.vel[0]
+
+    
+    def lights_up(self, block, block_size):
+        light_rect = (block[0], block[1], 0.2*block_size, 0.2*block_size)
+        pygame.draw.rect(screen, YELLOW, light_rect)
+
 
 
 def initialization(width, height, size, monster_size, monster_num = 1):
-    player = Player([width//2, height//2], size)
+    player = Player([width//8, 4*height//5], size)
     monsters = []
     dead_monsters = []
 
@@ -211,9 +293,13 @@ def initialization(width, height, size, monster_size, monster_num = 1):
 
 player_size = [30,50]
 monster_size = [30,30]
+boss_size = [70,70]
 block_size = [20,20]
 fireball_size = [10,10]
+min_fire_time = 150
 monster_num = 1
+
+loop_time = 1.5 * 10**(-3)
 
 
 pygame.init()
@@ -232,16 +318,46 @@ keys = [False, False, False, False]
 
 
 
-#Side wall and lower wall
+#Create blocks for different levels
+blocks_all = []
 
 blocks = [GameObject([x_pos * block_size[0], height-block_size[1]], block_size) for x_pos in range(width//block_size[0])]
 blocks.extend([GameObject([0, y_pos *block_size[1]], block_size)  for y_pos in range(height//block_size[1])])
-blocks.extend([GameObject([width-block_size[0], y_pos *block_size[1]], block_size)  for y_pos in range(height//block_size[1])])
+blocks.extend([GameObject([width-block_size[0], y_pos *block_size[1]], block_size)  for y_pos in range(5,height//block_size[1])])
 
 
-#Some walls in the middle
+#I want to put walls for different scenes. Let's say 4 for now.
+blocks.extend([GameObject([0.5*width, y_pos *block_size[1]], block_size)  for y_pos in range(4,12)])
+
+blocks.extend([GameObject([x_pos * block_size[0], height-15*block_size[1]], block_size) for x_pos in range(width//block_size[0] - 12, width//block_size[0] - 1)])
+
+blocks.extend([GameObject([x_pos * block_size[0], height-15*block_size[1]], block_size) for x_pos in range(12)])
+
+blocks.extend([GameObject([x_pos * block_size[0], height-10*block_size[1]], block_size) for x_pos in range(15,width//block_size[0] - 1)])
 
 blocks.extend([GameObject([x_pos * block_size[0], height-5*block_size[1]], block_size) for x_pos in range(10,width//block_size[0] - 10)])
+
+blocks_all.append(blocks)
+
+
+blocks = [GameObject([x_pos * block_size[0], height-block_size[1]], block_size) for x_pos in range(width//block_size[0])]
+blocks.extend([GameObject([0, y_pos *block_size[1]], block_size)  for y_pos in range(height//block_size[1])])
+blocks.extend([GameObject([width-block_size[0], y_pos *block_size[1]], block_size)  for y_pos in range(5,height//block_size[1])])
+
+
+#I want to put walls for different scenes. Let's say 4 for now.
+blocks.extend([GameObject([0.5*width, y_pos *block_size[1]], block_size)  for y_pos in range(4,12)])
+
+blocks.extend([GameObject([x_pos * block_size[0], height-15*block_size[1]], block_size) for x_pos in range(width//block_size[0] - 12, width//block_size[0] - 1)])
+
+blocks.extend([GameObject([x_pos * block_size[0], height-15*block_size[1]], block_size) for x_pos in range(12)])
+
+blocks.extend([GameObject([x_pos * block_size[0], height-10*block_size[1]], block_size) for x_pos in range(15,width//block_size[0] - 1)])
+
+blocks.extend([GameObject([x_pos * block_size[0], height-5*block_size[1]], block_size) for x_pos in range(10,width//block_size[0] - 10)])
+
+blocks_all.append(blocks)
+
 
 acc=[0,0]
 arrows=[]
@@ -266,6 +382,8 @@ mario = pygame.transform.scale(mario, player_size)
 mario_jump = pygame.image.load("resources/images/Mario_jump.jpg")
 mario_jump = pygame.transform.scale(mario_jump, player_size)
 
+boss_pic = pygame.image.load("resources/images/boss.jpg")
+boss_pic = pygame.transform.scale(boss_pic, boss_size)
 
 goomba = pygame.image.load("resources/images/goomba.png")
 goomba = pygame.transform.scale(goomba, monster_size)
@@ -302,11 +420,18 @@ pygame.mixer.music.set_volume(0.25)
 
 # 4 Big loop so that after the gameover one can restart.
 while True:
+    player_alive = True
     player, monsters, dead_monsters = initialization(width, height, player_size, monster_size)
+    bosses = []
     fireballs = []
-    exit_flag = False
+    exit_flag = 0
+    counter = 0
+    blocks = blocks_all[counter]
+    fire_timer = 0
 
-    while not exit_flag:
+    while not exit_flag and player_alive:
+        t = time.time()
+        fire_timer += 1
         # 5 - clear the screen before drawing it again
         screen.fill(0)
 
@@ -338,8 +463,8 @@ while True:
             #pygame.draw.rect(screen, GREEN, small_rect)
 
         # 5.1.2 - Check if monsters disappeared.
-        while len(monsters) < monster_num:
-            monsters.append(Monster([3*width//4, height//2], monster_size))
+        #while len(monsters) < monster_num:
+        #    monsters.append(Monster([3*width//4, height//2], monster_size))
 
 
         for monster in monsters:
@@ -351,11 +476,12 @@ while True:
 
         remaining_ind = []
 
-        for i,dead_monster in enumerate(dead_monsters):
+        for i, dead_monster in enumerate(dead_monsters):
             dead_monster.progressing()
 
             if dead_monster.pos[1] > 2 * height:
                 del dead_monster
+                monsters.append(Monster([3*width//4, height//2], monster_size))
             else:
                 remaining_ind.append(i)
                 screen.blit(goomba, dead_monster.pos)
@@ -408,18 +534,20 @@ while True:
                     player.keys[2]=False
                 elif event.key==pygame.K_d:
                     player.keys[3]=False
-                elif event.key == pygame.K_SPACE and len(fireballs) < 4:
+                elif event.key == pygame.K_SPACE and len(fireballs) < 4 and fire_timer > min_fire_time:
+                    fire_timer = 0
                     shoot.play()
                     if player.face_right:
-                        fireballs.append(Projectiles([player.pos[0]+player.size[0], player.pos[1] + 0.5*player.size[1]], fireball_size, face_right = True))
+                        fireballs.append(Fireball([player.pos[0]+player.size[0], player.pos[1] + 0.5*player.size[1]], fireball_size, face_right = True))
                     else:
-                        fireballs.append(Projectiles([player.pos[0], player.pos[1] + 0.5*player.size[1]], fireball_size, face_right = False))
+                        fireballs.append(Fireball([player.pos[0], player.pos[1] + 0.5*player.size[1]], fireball_size, face_right = False))
 
         # 5.2.1 - If the player touches the monster, then game over. 
 
 
         if player.got_hit_any(monsters):
             #Clear all collision, let him jump one last time.
+            player_alive = False
             player.collide = [False]*4
             player.keys = [False]*4
             player.vert = player.jump_speed_factor * player.gravity
@@ -448,10 +576,178 @@ while True:
 
 
         # 5.2.3 - If the collision is more than 3, then the fireballs disappears.
-        fireballs = [fireball for fireball in fireballs if fireball.col_count <= 3 and fireball.pos[0] > 0 and fireball.pos[0] < width and fireball.pos[1] > 0 and fireball.pos[1] < height]
+        fireballs = [fireball for fireball in fireballs if fireball.col_count <= 2 and fireball.pos[0] > 0 and fireball.pos[0] < width and fireball.pos[1] > 0 and fireball.pos[1] < height]
+
+        elapsed = time.time() - t
+
+        if elapsed < loop_time:
+            time.sleep(loop_time - elapsed)
+
+        #print(player.pos[0] - width)
+        # 6 - If the player goes to the other side successfully, then sleep for 0.5 sec and load the next set of blocks.
+        if player.pos[0] > width:
+            print("To next level!")
+            counter = counter + 1
+            blocks = blocks_all[counter]
 
 
-    while player.pos[1] < 2*height:
+            del player
+            for monster in monsters:
+                del monster
+            for  dead_monster in dead_monsters:
+                del dead_monster
+            for fireball in fireballs:
+                del fireball
+
+
+
+            player, monsters, dead_monsters = initialization(width, height, player_size, monster_size)
+            fireballs = []
+
+            time.sleep(0.1)
+            if counter == len(blocks_all) - 1:
+                print("Going to boss level")
+                break
+
+        # 6.1 - If the player falls off the screen, then he dies.
+
+        if player.pos[1] > 1.1*height:
+            player_alive = False
+    
+    if player_alive and counter == len(blocks_all) -1 :
+        #Load final stage and the boss.
+        monsters = []
+        boss = Boss(pos = [7/8 * width, 0.1*height])
+        bosses.append(boss)
+        blocks = blocks_all[-1]
+        hammers = []
+        
+        while not exit_flag:
+
+            t = time.time()
+            # 5 - clear the screen before drawing it again
+            screen.fill(0)
+
+            #player_rect = (player.pos[0], player.pos[1], player.size[0], player.size[1])
+            #small_rect = (player.pos[0], player.pos[1], 0.1*player.size[0], 0.1*player.size[1])
+            #pygame.draw.rect(screen, BLUE, player_rect)
+            #pygame.draw.rect(screen, GREEN, small_rect)
+
+            # 5.1 - Blit players, wall, and boss
+
+            player.check_collide(blocks)
+            player.progressing()
+
+            if player.vert != 0 and player.face_right:
+                screen.blit(mario_jump, player.pos)
+            elif player.vert != 0:
+                screen.blit(pygame.transform.flip(mario_jump, True, False), player.pos)
+            elif player.face_right:
+                screen.blit(mario, player.pos)
+            else:
+                screen.blit(pygame.transform.flip(mario, True, False), player.pos)
+
+
+            for block in blocks:
+                screen.blit(wall, block.pos)
+
+            for hammer in hammers:
+                hammer.progressing()
+                hammer_rect = (hammer.pos[0], hammer.pos[1], hammer.size[0], hammer.size[1])
+                pygame.draw.rect(screen, GREEN, hammer_rect)
+
+
+
+            boss.check_collide(blocks)
+            boss.progressing(hammers)
+
+            screen.blit(boss_pic, boss.pos)
+
+            for fireball in fireballs:
+
+                fireball.check_collide(blocks)
+                fireball.progressing()
+
+                rect = (fireball.pos[0], fireball.pos[1], fireball.size[0], fireball.size[1])
+                pygame.draw.rect(screen, RED, rect)
+
+        
+            pygame.display.flip()
+
+            # 8 - loop through the events
+            for event in pygame.event.get():
+                # check if the event is the X button
+                if event.type == pygame.QUIT:
+                    # if it is quit the game
+                    pygame.quit()
+                    exit(0)
+
+
+                #For pressing down the key for WASD, we perform some actions.
+                if event.type == pygame.KEYDOWN:
+                    if event.key==K_w:
+                        player.keys[0]=True
+                    elif event.key==K_a:
+                        player.keys[1]=True
+                        player.face_right = False
+                    elif event.key==K_s:
+                        player.keys[2]=True
+                    elif event.key==K_d:
+                        player.keys[3]=True
+                        player.face_right = True
+
+                #For releasing the key, we reset our situation.
+                if event.type == pygame.KEYUP:
+                    if event.key==pygame.K_w:
+                        player.keys[0]=False
+                    elif event.key==pygame.K_a:
+                        player.keys[1]=False
+                    elif event.key==pygame.K_s:
+                        player.keys[2]=False
+                    elif event.key==pygame.K_d:
+                        player.keys[3]=False
+                    elif event.key == pygame.K_SPACE and len(fireballs) < 4:
+                        shoot.play()
+                        if player.face_right:
+                            fireballs.append(Fireball([player.pos[0]+player.size[0], player.pos[1] + 0.5*player.size[1]], fireball_size, face_right = True))
+                        else:
+                            fireballs.append(Fireball([player.pos[0], player.pos[1] + 0.5*player.size[1]], fireball_size, face_right = False))                
+
+
+            if player.got_hit_any(hammers):
+                #Clear all collision, let him jump one last time.
+                player_alive = False
+                player.collide = [False]*4
+                player.keys = [False]*4
+                player.vert = player.jump_speed_factor * player.gravity
+                exit_flag = True
+                hit.play()
+                break
+
+            if boss.got_hit_any(fireballs):
+                boss.health -= 1
+                if boss.health == 0:
+                    exit_flag = True
+            
+            fireballs = [fireball for fireball in fireballs if not fireball.got_hit_any(bosses)]
+
+            fireballs = [fireball for fireball in fireballs if fireball.col_count <= 2 and fireball.pos[0] > 0 and fireball.pos[0] < width and fireball.pos[1] > 0 and fireball.pos[1] < height]
+
+            hammers = [hammer for hammer in hammers if hammer.col_count == 0]
+            broken_hammers = [hammer for hammer in hammers if hammer.col_count != 0]
+            for broken_hammer in broken_hammers:
+                del broken_hammer
+
+            elapsed = time.time() - t
+
+            if elapsed < loop_time:
+                time.sleep(loop_time - elapsed)
+
+
+
+
+    while player.pos[1] < 2*height and not player_alive:
+        t = time.time()
         screen.fill(0)
         #Let the player jump and fall through walls.
 
@@ -463,10 +759,17 @@ while True:
             screen.blit(wall, block.pos)
         
         for monster in monsters:
-            screen.blit(goomba, tuple(monster.pos))        
-
+            screen.blit(goomba, monster.pos) 
+        
+        for boss in bosses:
+            screen.blit(boss_pic, boss.pos)
         
         pygame.display.flip()
+
+        elapsed = time.time() - t
+
+        if elapsed < loop_time:
+            time.sleep(loop_time - elapsed)
 
     # Delete all monsters and players.
 
@@ -474,14 +777,24 @@ while True:
     for monster in monsters:
         del monster
 
-    pygame.font.init()
-    font = pygame.font.Font(None, 24)
-    text = font.render("You Lost. Click anywhere to play again.", True, (255,0,0))
-    textRect = text.get_rect()
-    textRect.centerx = screen.get_rect().centerx
-    textRect.centery = screen.get_rect().centery+24
-    screen.blit(gameover, (0,0))
-    screen.blit(text, textRect)
+    if not player_alive:
+        pygame.font.init()
+        font = pygame.font.Font(None, 24)
+        text = font.render("You Lost. Click anywhere to play again.", True, (255,0,0))
+        textRect = text.get_rect()
+        textRect.centerx = screen.get_rect().centerx
+        textRect.centery = screen.get_rect().centery+24
+        screen.blit(gameover, (0,0))
+        screen.blit(text, textRect)
+    else:
+        pygame.font.init()
+        font = pygame.font.Font(None, 24)
+        text = font.render("You Won! Click anywhere to play again.", True, (255,0,0))
+        textRect = text.get_rect()
+        textRect.centerx = screen.get_rect().centerx
+        textRect.centery = screen.get_rect().centery+24
+        screen.blit(youwin, (0,0))
+        screen.blit(text, textRect)        
 
     replay_flag = False
 
