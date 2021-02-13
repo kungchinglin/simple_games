@@ -586,7 +586,6 @@ while True:
         #print(player.pos[0] - width)
         # 6 - If the player goes to the other side successfully, then sleep for 0.5 sec and load the next set of blocks.
         if player.pos[0] > width:
-            print("To next level!")
             counter = counter + 1
             blocks = blocks_all[counter]
 
@@ -606,7 +605,6 @@ while True:
 
             time.sleep(0.1)
             if counter == len(blocks_all) - 1:
-                print("Going to boss level")
                 break
 
         # 6.1 - If the player falls off the screen, then he dies.
@@ -733,8 +731,8 @@ while True:
 
             fireballs = [fireball for fireball in fireballs if fireball.col_count <= 2 and fireball.pos[0] > 0 and fireball.pos[0] < width and fireball.pos[1] > 0 and fireball.pos[1] < height]
 
-            hammers = [hammer for hammer in hammers if hammer.col_count == 0]
-            broken_hammers = [hammer for hammer in hammers if hammer.col_count != 0]
+            hammers = [hammer for hammer in hammers if hammer.col_count == 0 and hammer.pos[1] < 1.1 * height]
+            broken_hammers = [hammer for hammer in hammers if hammer.col_count != 0 or hammer.pos[1] >= 1.1 * height]
             for broken_hammer in broken_hammers:
                 del broken_hammer
 
