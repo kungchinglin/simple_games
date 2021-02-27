@@ -330,7 +330,7 @@ gunner_size = [30,50]
 boss_size = [70,70]
 block_size = [20,20]
 fireball_size = [10,10]
-min_fire_time = 150
+min_fire_time = 100
 monster_num = 1
 
 loop_time = 1.5 * 10**(-3)
@@ -351,6 +351,9 @@ keys = [False, False, False, False]
 
 wall = pygame.image.load("resources/images/wall.jpg")
 wall = pygame.transform.scale(wall, block_size)
+
+spike = pygame.image.load("resources/images/spike-ball.png").convert_alpha()
+spike = pygame.transform.scale(spike, block_size)
 
 mario = pygame.image.load("resources/images/mario_stand.png").convert_alpha()
 mario = pygame.transform.scale(mario, player_size)
@@ -514,32 +517,11 @@ def obj_initialize():
 
 
 
-acc=[0,0]
-arrows=[]
-
-
-badtimer=100
-badtimer1=0
-badguys=[[640,100]]
-healthvalue=194
 
 pygame.mixer.init()
 
 
 # 3 - Load images
-
-
-
-player_rabbit = pygame.image.load("resources/images/dude.png")
-
-
-grass = pygame.image.load("resources/images/grass.png")
-castle = pygame.image.load("resources/images/castle.png")
-
-arrow = pygame.image.load("resources/images/bullet.png")
-
-badguyimg1 = pygame.image.load("resources/images/badguy.png")
-badguyimg=badguyimg1
 
 healthbar = pygame.image.load("resources/images/healthbar.png")
 health = pygame.image.load("resources/images/health.png")
@@ -581,6 +563,36 @@ while True:
     fire_timer = 0
 
 
+    screen.fill(0)
+    pygame.font.init()
+    font = pygame.font.Font(None, 48)
+
+    text1 = font.render("Monster Dungeon", True, (255,255,0))
+    textRect1 = text1.get_rect()
+    textRect1.centerx = screen.get_rect().centerx
+    textRect1.centery = screen.get_rect().centery - 48
+    screen.blit(text1, textRect1)   
+
+    font = pygame.font.Font(None, 24)
+
+    text2 = font.render("Click anywhere to begin the game", True, (255,0,0))
+    textRect2 = text2.get_rect()
+    textRect2.centerx = screen.get_rect().centerx
+    textRect2.centery = screen.get_rect().centery
+    screen.blit(text2, textRect2)
+
+    start_flag = False
+    while not start_flag:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                exit(0)
+            if event.type==pygame.MOUSEBUTTONDOWN:
+                start_flag = True
+                break        
+        
+        pygame.display.flip()
+
     while not exit_flag and player_alive:
         t = time.time()
         fire_timer += 1
@@ -614,8 +626,9 @@ while True:
             #pygame.draw.rect(screen, GREEN, small_rect)
 
         for trap in traps:
-            rect = (trap.pos[0], trap.pos[1], trap.size[0], trap.size[1])
-            pygame.draw.rect(screen, RED, rect)            
+            screen.blit(spike, trap.pos)
+            #rect = (trap.pos[0], trap.pos[1], trap.size[0], trap.size[1])
+            #pygame.draw.rect(screen, RED, rect)            
 
         # 5.1.2 - Check if monsters disappeared.
         #while len(monsters) < monster_num:
@@ -777,6 +790,7 @@ while True:
 
         # 5.2.3 - If the collision is more than 3, then the fireballs disappears.
         fireballs = [fireball for fireball in fireballs if fireball.col_count <= 2 and fireball.pos[0] > 0 and fireball.pos[0] < width and fireball.pos[1] > 0 and fireball.pos[1] < height]
+        hammers = [hammer for hammer in hammers if hammer.pos[1] < 1.1 * height]
 
         elapsed = time.time() - t
 
@@ -830,12 +844,14 @@ while True:
         bosses.append(boss)
         blocks = blocks_all[-1]
         hammers = []
+        fire_timer = 0
         
         while not exit_flag:
 
             t = time.time()
             # 5 - clear the screen before drawing it again
             screen.fill(0)
+            fire_timer += 1
 
             #player_rect = (player.pos[0], player.pos[1], player.size[0], player.size[1])
             #small_rect = (player.pos[0], player.pos[1], 0.1*player.size[0], 0.1*player.size[1])
@@ -922,7 +938,8 @@ while True:
                         player.keys[2]=False
                     elif event.key==pygame.K_d:
                         player.keys[3]=False
-                    elif event.key == pygame.K_SPACE and len(fireballs) < 4:
+                    elif event.key == pygame.K_SPACE and len(fireballs) < 4  and fire_timer > min_fire_time:
+                        fire_timer = 0
                         shoot.play()
                         if player.face_right:
                             fireballs.append(Fireball([player.pos[0]+player.size[0], player.pos[1] + 0.5*player.size[1]], fireball_size, face_right = True))
@@ -952,8 +969,9 @@ while True:
 
             fireballs = [fireball for fireball in fireballs if fireball.col_count <= 2 and fireball.pos[0] > 0 and fireball.pos[0] < width and fireball.pos[1] > 0 and fireball.pos[1] < height]
 
-            hammers = [hammer for hammer in hammers if hammer.col_count == 0 and hammer.pos[1] < 1.1 * height]
-            broken_hammers = [hammer for hammer in hammers if hammer.col_count != 0 or hammer.pos[1] >= 1.1 * height]
+            broken_hammers = [hammer for hammer in hammers if hammer.pos[1] >= 1.1 * height]
+            hammers = [hammer for hammer in hammers if hammer.pos[1] < 1.1 * height]
+            
             for broken_hammer in broken_hammers:
                 del broken_hammer
 
@@ -999,7 +1017,7 @@ while True:
     if not player_alive:
         pygame.font.init()
         font = pygame.font.Font(None, 24)
-        text = font.render("You Lost. Click anywhere to play again.", True, (255,0,0))
+        text = font.render("You Lost. Click anywhere to return to the main menu.", True, (255,0,0))
         textRect = text.get_rect()
         textRect.centerx = screen.get_rect().centerx
         textRect.centery = screen.get_rect().centery+24
@@ -1008,7 +1026,7 @@ while True:
     else:
         pygame.font.init()
         font = pygame.font.Font(None, 24)
-        text = font.render("You Won! Click anywhere to play again.", True, (255,0,0))
+        text = font.render("You Won! Click anywhere to return to the main menu.", True, (255,0,0))
         textRect = text.get_rect()
         textRect.centerx = screen.get_rect().centerx
         textRect.centery = screen.get_rect().centery+24
@@ -1029,209 +1047,4 @@ while True:
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-# 4 - keep looping through
-running = 1
-exitcode = 0
-while running:
-    badtimer-=1
-
-
-    badtimer-=1
-
-    # 5 - clear the screen before drawing it again
-    screen.fill(0)
-    # 6 - draw the screen elements
-    for x in range(width//grass.get_width()+1):
-        for y in range(height//grass.get_height()+1):
-            screen.blit(grass,(x*100,y*100))
-    screen.blit(castle,(0,30))
-    screen.blit(castle,(0,135))
-    screen.blit(castle,(0,240))
-    screen.blit(castle,(0,345 ))
-
-
-
-
-    #screen.blit(player, playerpos)
-
-    # 6.1 - Set player position and rotation
-    position = pygame.mouse.get_pos()
-    angle = math.atan2(position[1]-(playerpos[1]+32),position[0]-(playerpos[0]+26))
-    playerrot = pygame.transform.rotate(player, 360-angle*57.29)
-    playerpos1 = (playerpos[0]-playerrot.get_rect().width/2, playerpos[1]-playerrot.get_rect().height/2)
-    screen.blit(playerrot, playerpos1) 
-
-
-    # 6.2 - Draw arrows
-    for bullet in arrows:
-        index=0
-        velx=math.cos(bullet[0])*10
-        vely=math.sin(bullet[0])*10
-        bullet[1]+=velx
-        bullet[2]+=vely
-        if bullet[1]<-64 or bullet[1]>640 or bullet[2]<-64 or bullet[2]>480:
-            arrows.pop(index)
-        index+=1
-        for projectile in arrows:
-            arrow1 = pygame.transform.rotate(arrow, 360-projectile[0]*57.29)
-            screen.blit(arrow1, (projectile[1], projectile[2]))
-
-    # 6.3 - Draw badgers
-    if badtimer==0:
-        badguys.append([640, random.randint(50,430)])
-        badtimer=100-(badtimer1*2)
-        if badtimer1>=35:
-            badtimer1=35
-        else:
-            badtimer1+=5
-    index=0
-    for badguy in badguys:
-        if badguy[0]<-64:
-            badguys.pop(index)
-        badguy[0]-=5
-
-        # 6.3.1 - Attack castle
-        badrect=pygame.Rect(badguyimg.get_rect())
-        badrect.top=badguy[1]
-        badrect.left=badguy[0]
-        if badrect.left<64:
-            hit.play()
-            healthvalue -= random.randint(5,20)
-            badguys.pop(index)
-
-        #6.3.2 - Check for collisions
-        index1=0
-        for bullet in arrows:
-            bullrect=pygame.Rect(arrow.get_rect())
-            bullrect.left=bullet[1]
-            bullrect.top=bullet[2]
-            if badrect.colliderect(bullrect):
-                enemy.play()
-                acc[0]+=1
-                badguys.pop(index)
-                arrows.pop(index1)
-            index1+=1
-
-
-        # 6.3.3 - Next bad guy
-        index+=1
-    for badguy in badguys:
-        screen.blit(badguyimg, badguy)
-
-    # 6.4 - Draw clock
-    font = pygame.font.Font(None, 24)
-    survivedtext = font.render(str(int((90000-pygame.time.get_ticks())/60000))+":"+str(int((90000-pygame.time.get_ticks())/1000%60)).zfill(2), True, (0,0,0))
-    textRect = survivedtext.get_rect()
-    textRect.topright=[635,5]
-    screen.blit(survivedtext, textRect)
-
-    # 6.5 - Draw health bar
-    screen.blit(healthbar, (5,5))
-    for health1 in range(healthvalue):
-        screen.blit(health, (health1+8,8))
-
-
-
-    # 7 - update the screen
-    pygame.display.flip()
-    # 8 - loop through the events
-    for event in pygame.event.get():
-        # check if the event is the X button 
-        if event.type==pygame.QUIT:
-            # if it is quit the game
-            pygame.quit() 
-            exit(0) 
-
-
-        #For pressing down the key for WASD, we perform some actions.
-        if event.type == pygame.KEYDOWN:
-            if event.key==K_w:
-                keys[0]=True
-            elif event.key==K_a:
-                keys[1]=True
-            elif event.key==K_s:
-                keys[2]=True
-            elif event.key==K_d:
-                keys[3]=True
-
-        #For releasing the key, we reset our situation.
-        if event.type == pygame.KEYUP:
-            if event.key==pygame.K_w:
-                keys[0]=False
-            elif event.key==pygame.K_a:
-                keys[1]=False
-            elif event.key==pygame.K_s:
-                keys[2]=False
-            elif event.key==pygame.K_d:
-                keys[3]=False
-
-
-        #When the mouse is clicked, add arrow.
-        if event.type==pygame.MOUSEBUTTONDOWN:
-            shoot.play()
-            position=pygame.mouse.get_pos()
-            acc[1]+=1
-            arrows.append([math.atan2(position[1]-(playerpos1[1]+32),position[0]-(playerpos1[0]+26)),playerpos1[0]+32,playerpos1[1]+32])
-
-
-
-    # 9 - Move player
-    if keys[0]:
-        playerpos[1]-=5
-    elif keys[2]:
-        playerpos[1]+=5
-    if keys[1]:
-        playerpos[0]-=5
-    elif keys[3]:
-        playerpos[0]+=5
-
-
-    #10 - Win/Lose check
-    if pygame.time.get_ticks()>=90000:
-        running=0
-        exitcode=1
-    if healthvalue<=0:
-        running=0
-        exitcode=0
-    if acc[1]!=0:
-        accuracy=acc[0]*1.0/acc[1]*100
-    else:
-        accuracy=0
-
-# 11 - Win/lose display        
-if exitcode==0:
-    pygame.font.init()
-    font = pygame.font.Font(None, 24)
-    text = font.render("Accuracy: "+str(accuracy)+"%", True, (255,0,0))
-    textRect = text.get_rect()
-    textRect.centerx = screen.get_rect().centerx
-    textRect.centery = screen.get_rect().centery+24
-    screen.blit(gameover, (0,0))
-    screen.blit(text, textRect)
-else:
-    pygame.font.init()
-    font = pygame.font.Font(None, 24)
-    text = font.render("Accuracy: "+str(accuracy)+"%", True, (0,255,0))
-    textRect = text.get_rect()
-    textRect.centerx = screen.get_rect().centerx
-    textRect.centery = screen.get_rect().centery+24
-    screen.blit(youwin, (0,0))
-    screen.blit(text, textRect)
-while 1:
-    for event in pygame.event.get():
-        if event.type == pygame.QUIT:
-            pygame.quit()
-            exit(0)
-    pygame.display.flip()
 
